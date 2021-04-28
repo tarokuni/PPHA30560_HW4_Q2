@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <!-- set styles on the top -->
+    <style>
+        .chart-container {
+            max-width: 1050px;
+            /* border: 2px solid red; */
+            margin: 0 auto;
+            /* auto centers the div */
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        }
+
+        svg {
+            /* border: 2px solid purple; */
+            overflow: visible;
+        }
+
+        h1 {
+            font-size: 30px;
+            margin: 0 auto;
+        }
+
+        p {
+            margin-top: 25px;
+        }
+
+        .x .tick line {
+            stroke: rgba(0, 0, 0, .2);
+        }
+
+        .y .tick line {
+            stroke: rgba(0, 0, 0, .2);
+        }
+
+        .x .domain {
+            display: none;
+        }
+
+        .y .domain {
+            display: none;
+        }
+
+        .y .tick text {
+            font-size: 14px;
+            fill: #333;
+
+        }
+
+        .x .tick text {
+            font-size: 14px;
+            fill: #333;
+        }
+
+        .label {
+            font-size: 20px;
+            font-weight: 1000;
+        }
+
+        .axis-label {
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+
+        .axis-label2 {
+            font-size: 14px;
+            fill: #333;
+        }
+
+        .source {
+            max-width: 1000px;
+            margin: 30 auto;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="chart-container" >
+        <h1 class="headline">
+            The Decline of Farming and the Rise of Everthing Else
+        </h1>
+
+        <h3>Number of jobs for each job type</h3>
+        <svg width="500px" height="500px" >
+        </svg>
+        <p class="source">Data from NPR Planet Money</p>
+
+    </div>
+</body>
+
+<script src="https://d3js.org/d3.v6.min.js"></script>
+<!-- we're using d3 version 6 (the latest version) for all out work -->
+
+<script>
+    console.log({ d3 })
+
+    let width = 500;
+    let height = 500;
+
+    let svg = d3.select("body")
+        .select("svg")
+
+    d3.csv("firstjob_major_d3_3.csv").then(function (data) {
+
+        data.forEach(d => {
+            d.year = +d.year
+            d["Farming"] = +d["Farming"]
+            d["Blue Collar"] = +d["Blue Collar"]
+            d["Service"] = +d["Service"]
+            d["White Collar"] = +d["White Collar"]
+            d["Other"] = +d["Other"]
+        })
+
+        console.log({data})
+
+        let margin = { top: 10, right: 10, bottom: 10, left: 30 };
+
+        let sel_cols = [
+            "Farming",
+            "Blue Collar",
+            "Service",
+            "White Collar",
+            "Other"]
+
+        // Same color as original 
+        let sel_colors = [
+            "rgb(41, 169, 126)", // "Farming",
+            "rgb(23, 143, 232)", // "Blue Collar",
+            "rgb(223, 208, 96)", // "Service",
+            "rgb(221, 72, 143)", // "White Collar",
+            "rgb(204, 204, 204)" // "Other"
+        ]
+
+    //     //https://github.com/d3/d3-shape#stacks
+        let series = d3.stack().keys(sel_cols.reverse())(data);
+
+        console.log({series})
+
+    //     // https://github.com/d3/d3-scale#ordinal-scales
+        let color = d3.scaleOrdinal()
+            .domain(sel_cols)
+            .range(sel_colors.reverse())
+
+        let x = d3.scaleLinear()
+            .domain(d3.extent(data, d => d.year))
+            .range([margin.left, width])
+            
+        let y = d3.scaleLinear()
+            .domain([0, d3.max(data, d => d["Farming"] +d["Blue Collar"] + d["Service"] + d["White Collar"] + d["Other"])])
+            .range([height - margin.bottom, margin.top])
+
+
+    //     //https://github.com/d3/d3-shape#areas
+        let area = d3.area()
+            .x(d => x(d.data.year))
+            .y0(d => y(d[0]))
+            .y1(d => y(d[1]))
+
+        let xAxisSettings = d3.axisBottom(x)
+            .tickSize(6)
+            .tickPadding(6)
+            .ticks(5)
+            .tickFormat(d3.format(".0f"))
+
+        let xAxis = svg.append("g")
+            .attr("class", "x axis")
+            .call(xAxisSettings)
+            .call(g => g.selectAll(".domain").remove())
+            .attr("transform", `translate(0,${width - margin.right})`)
+
+        // let yAxisSettings = d3.axisLeft(y)
+        //     .ticks(10)
+        //     .tickSize(6)
+        //     .tickPadding(4)
+        //     .tickFormat(d3.format(".0M"))
+
+        // let yAxis = svg
+        //     .append("g")
+        //     .attr("class", "y axis")
+        //     .call(yAxisSettings)
+        //     .call(g => g.selectAll(".domain").remove())
+        //     .attr("transform", `translate(0,${height - margin.bottom})`)
+
+        let yTickSettings = d3.axisLeft(y)
+            .tickValues([2e7, 6e7, 1e8, 1.4e8])
+            .tickSize(- width + 3 * margin.right)
+            .tickPadding(4)
+            .tickFormat(d3.formatPrefix(".0", 1e6));
+            //.tickFormat(d3.format(".0"))
+
+        let yAxis = svg.append("g")
+            .attr("class", "y axis")
+            .attr("transform", `translate(${margin.left},0)`)
+            .call(yTickSettings)
+
+
+    //     //labelling 
+        svg.append("g")
+            .selectAll("path")
+            .data(series)
+            .join("path")
+            .attr("class", d =>  {
+                console.log(d)
+                return d.key
+            })
+            .attr("fill", d => color(d.key))
+            .attr("d", area)
+            .style("opacity", 0.9)
+
+
+        let zeroline = svg.append("line") //we can add additional highlight lines
+            .attr("x1", margin.left)
+            .attr("x2",  width )
+            .attr("y1", y(0))
+            .attr("y2", y(0))
+            .style("stroke", "#333")
+            .style("stroke-width", 1.5)
+            .style("opacity", 0.7)
+
+        svg.append("text")
+            .attr("class", "label")
+            .attr("x", 150)
+            .attr("y", 380)
+            .text("Farming")
+
+        svg.append("text")
+            .attr("class", "label")
+            .attr("x", width - 110)
+            .attr("y", 120)
+            .text("Blue Collar")
+
+        svg.append("text")
+            .attr("class", "label")
+            .attr("x", width - 40)
+            .attr("y", height/2 - 70)
+            .text("Services")
+            // .attr("text-anchor", "middle") //text-anchor controls positioning for SVG text
+
+        svg.append("text")
+            .attr("class", "label")
+            .attr("x", width - 130)
+            .attr("y", height -80)
+            .text("White Collar")
+
+        svg.append("text")
+            .attr("class", "label")
+            .attr("x", 400)
+            .attr("y", height - 13)
+            .text("Other")
+
+        svg.append("text")
+            .attr("class", "axis-label2")
+            .attr("x", -12)
+            .attr("y", 50)
+            .text("jobs existed by 2013")
+    })
+
+</script>
